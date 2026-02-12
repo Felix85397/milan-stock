@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Milan Stock Exchange - RedBlack Insights</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        // ============================================
+        // CONFIGURAZIONE FIREBASE
+        // ============================================
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getFirestore, collection, doc, updateDoc, increment, onSnapshot, getDocs, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAlU_5N7xROR2eZHA27Zv_9B4ZPLOLR7bw",
+            authDomain: "ac-milan-stock-exchange.firebaseapp.com",
+            projectId: "ac-milan-stock-exchange",
+            storageBucket: "ac-milan-stock-exchange.firebasestorage.app",
+            messagingSenderId: "276200627057",
+            appId: "1:276200627057:web:772949643e0ba72c55f4d0"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // ============================================
+        // DATI INIZIALI GIOCATORI
+        // ============================================
+        const initialPlayers = [
+            // PORTIERI
+            { name: "Mike Maignan", role: "P", value: "25.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Pietro Terracciano", role: "P", value: "1.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Lorenzo Torriani", role: "P", value: "500 K €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            // DIFENSORI
+            { name: "Strahinja Pavlović", role: "D", value: "28.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Koni De Winter", role: "D", value: "20.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Fikayo Tomori", role: "D", value: "20.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Matteo Gabbia", role: "D", value: "20.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "David Odogu", role: "D", value: "5.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Davide Bartesaghi", role: "D", value: "18.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Pervis Estupiñán", role: "D", value: "14.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Zachary Athekame", role: "D", value: "8.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            // CENTROCAMPISTI
+            { name: "Ardon Jashari", role: "C", value: "32.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Youssouf Fofana", role: "C", value: "28.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Samuele Ricci", role: "C", value: "25.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Adrien Rabiot", role: "C", value: "20.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Ruben Loftus-Cheek", role: "C", value: "10.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Luka Modrić", role: "C", value: "4.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Alexis Saelemaekers", role: "C", value: "25.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            // ATTACCANTI
+            { name: "Rafael Leão", role: "A", value: "70.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Christian Pulisic", role: "A", value: "60.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Christopher Nkunku", role: "A", value: "32.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Santiago Gimenez", role: "A", value: "20.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 },
+            { name: "Niclas Füllkrug", role: "A", value: "8.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 }
+        ];
+
+        // ============================================
+        // STATE MANAGEMENT
+        // ============================================
+        let players = [];
+        let votedPlayers = new Set();
+        let currentFilter = 'ALL';
+
+        // ============================================
+        // INIZIALIZZAZIONE
+        // ============================================
+        async function initializeMilanApp() {
+            try {
+                // Carica voti dal localStorage
+                const savedVotes = localStorage.getItem('milanStockVotes');
+                if (savedVotes) {
+                    votedPlayers = new Set(JSON.parse(savedVotes));
+                }
+
+                // Controlla se il database è vuoto
+                const playersCollection = collection(db, 'players');
+                const snapshot = await getDocs(playersCollection);
+
+                if (snapshot.empty) {
+                    console.log('Database vuoto. Inizializzazione...');
+                    const batch = writeBatch(db);
+                    
+                    initialPlayers.forEach((player) => {
+                        const docRef = doc(playersCollection);
+                        batch.set(docRef, player);
+                    });
+
+                    await batch.commit();
+                    console.log('Database inizializzato!');
+                }
+
+                // Listener real-time
+                onSnapshot(playersCollection, (snapshot) => {
+                    players = snapshot.docs.map(doc => ({
+                        id: doc.id,
+                        ...doc.data()
+                    }));
+                    renderPlayers();
+                    updateStats();
+                });
+
+                hideLoading();
+            } catch (error) {
+                console.error('Errore inizializzazione:', error);
+                showNotification('Errore di connessione a Firebase. Verifica la configurazione.', 'error');
+                hideLoading();
+            }
+        }
+
+        // ============================================
+        // GESTIONE VOTO
+        // ============================================
+        window.handleVote = async function(playerId, voteType) {
+            if (votedPlayers.has(playerId)) {
+                showNotification('Hai già votato per questo giocatore', 'warning');
+                return;
+            }
+
+            try {
+                const playerRef = doc(db, 'players', playerId);
+                const voteField = voteType === 'buy' ? 'votesBuy' : 
+                                voteType === 'hold' ? 'votesHold' : 'votesSell';
+                
+                await updateDoc(playerRef, {
+                    [voteField]: increment(1)
+                });
+
+                votedPlayers.add(playerId);
+                localStorage.setItem('milanStockVotes', JSON.stringify([...votedPlayers]));
+
+                showNotification('Voto registrato con successo!', 'success');
+            } catch (error) {
+                console.error('Errore voto:', error);
+                showNotification('Errore durante il voto. Riprova.', 'error');
+            }
+        };
+
+        // ============================================
+        // FILTRI
+        // ============================================
+        window.setFilter = function(filter) {
+            currentFilter = filter;
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.remove('bg-red-600', 'text-white');
+                btn.classList.add('bg-slate-700', 'text-slate-300');
+            });
+            event.target.classList.remove('bg-slate-700', 'text-slate-300');
+            event.target.classList.add('bg-red-600', 'text-white');
+            renderPlayers();
+        };
+
+        // ============================================
+        // RENDER
+        // ============================================
+        function renderPlayers() {
+            const filteredPlayers = currentFilter === 'ALL' 
+                ? players 
+                : players.filter(p => p.role === currentFilter);
+
+            const container = document.getElementById('playersGrid');
+            container.innerHTML = filteredPlayers.map(player => {
+                const percentages = getPercentages(player);
+                const sentiment = getPlayerSentiment(player);
+                const hasVoted = votedPlayers.has(player.id);
+                const totalVotes = player.votesBuy + player.votesHold + player.votesSell;
+                const roleLabel = player.role === 'P' ? 'Portiere' : 
+                                player.role === 'D' ? 'Difensore' : 
+                                player.role === 'C' ? 'Centrocampista' : 'Attaccante';
+
+                return `
+                    <div class="bg-slate-800 rounded-lg border border-slate-700 overflow-hidden hover:border-red-600 transition-all duration-300">
+                        <div class="bg-gradient-to-r from-slate-700 to-slate-800 p-4 border-b border-slate-700">
+                            <div class="flex items-start justify-between mb-2">
+                                <div>
+                                    <h3 class="text-lg font-bold text-white">${player.name}</h3>
+                                    <p class="text-sm text-slate-400">${roleLabel}</p>
+                                </div>
+                                <div class="${sentiment.color} font-bold text-sm flex items-center gap-1">
+                                    ${sentiment.icon}
+                                    ${sentiment.label}
+                                </div>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <div class="text-red-600 font-bold text-xl">${player.value}</div>
+                                <div class="text-slate-400 text-sm">${totalVotes} voti</div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 space-y-3">
+                            <!-- BUY -->
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-green-400 font-medium">🟢 BUY</span>
+                                    <span class="text-green-400 font-bold">${percentages.buy}%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-green-500 h-2 rounded-full transition-all duration-500" style="width: ${percentages.buy}%"></div>
+                                </div>
+                            </div>
+
+                            <!-- HOLD -->
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-yellow-400 font-medium">🟡 HOLD</span>
+                                    <span class="text-yellow-400 font-bold">${percentages.hold}%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-yellow-500 h-2 rounded-full transition-all duration-500" style="width: ${percentages.hold}%"></div>
+                                </div>
+                            </div>
+
+                            <!-- SELL -->
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span class="text-red-400 font-medium">🔴 SELL</span>
+                                    <span class="text-red-400 font-bold">${percentages.sell}%</span>
+                                </div>
+                                <div class="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
+                                    <div class="bg-red-500 h-2 rounded-full transition-all duration-500" style="width: ${percentages.sell}%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 pt-0">
+                            ${hasVoted ? `
+                                <div class="bg-slate-700 text-center py-3 rounded-lg text-green-400 font-medium">
+                                    ✓ Voto Registrato
+                                </div>
+                            ` : `
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="handleVote('${player.id}', 'buy')" 
+                                            class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-3 rounded-lg transition-all text-sm">
+                                        BUY
+                                    </button>
+                                    <button onclick="handleVote('${player.id}', 'hold')" 
+                                            class="bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2 px-3 rounded-lg transition-all text-sm">
+                                        HOLD
+                                    </button>
+                                    <button onclick="handleVote('${player.id}', 'sell')" 
+                                            class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg transition-all text-sm">
+                                        SELL
+                                    </button>
+                                </div>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateStats() {
+            const totalVotes = players.reduce((sum, p) => sum + p.votesBuy + p.votesHold + p.votesSell, 0);
+            const totalBuyVotes = players.reduce((sum, p) => sum + p.votesBuy, 0);
+            const totalSellVotes = players.reduce((sum, p) => sum + p.votesSell, 0);
+            const marketSentiment = totalBuyVotes > totalSellVotes ? 'RIALZISTA' : 
+                                  totalSellVotes > totalBuyVotes ? 'RIBASSISTA' : 'NEUTRALE';
+            const sentimentClass = marketSentiment === 'RIALZISTA' ? 'text-green-400' :
+                                 marketSentiment === 'RIBASSISTA' ? 'text-red-400' : 'text-yellow-400';
+
+            document.getElementById('totalVotes').textContent = totalVotes.toLocaleString();
+            document.getElementById('totalBuyVotes').textContent = totalBuyVotes.toLocaleString();
+            document.getElementById('totalSellVotes').textContent = totalSellVotes.toLocaleString();
+            document.getElementById('marketSentiment').textContent = marketSentiment;
+            document.getElementById('marketSentiment').className = `text-2xl font-bold ${sentimentClass}`;
+        }
+
+        // ============================================
+        // UTILITIES
+        // ============================================
+        function getPercentages(player) {
+            const total = player.votesBuy + player.votesHold + player.votesSell;
+            if (total === 0) return { buy: 0, hold: 0, sell: 0 };
+            
+            return {
+                buy: Math.round((player.votesBuy / total) * 100),
+                hold: Math.round((player.votesHold / total) * 100),
+                sell: Math.round((player.votesSell / total) * 100)
+            };
+        }
+
+        function getPlayerSentiment(player) {
+            const percentages = getPercentages(player);
+            const max = Math.max(percentages.buy, percentages.hold, percentages.sell);
+            
+            if (max === percentages.buy) {
+                return { 
+                    label: 'STRONG BUY', 
+                    color: 'text-green-400',
+                    icon: '📈'
+                };
+            }
+            if (max === percentages.sell) {
+                return { 
+                    label: 'STRONG SELL', 
+                    color: 'text-red-400',
+                    icon: '📉'
+                };
+            }
+            return { 
+                label: 'HOLD', 
+                color: 'text-yellow-400',
+                icon: '➖'
+            };
+        }
+
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg animate-pulse ${
+                type === 'success' ? 'bg-green-600' :
+                type === 'warning' ? 'bg-yellow-600' : 'bg-red-600'
+            } text-white`;
+            notification.style.display = 'block';
+            setTimeout(() => notification.style.display = 'none', 3000);
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+        }
+
+        // ============================================
+        // START APP
+        // ============================================
+        window.addEventListener('DOMContentLoaded', initializeMilanApp);
+    </script>
+</head>
+<body class="bg-slate-900 text-white min-h-screen">
+    <!-- NOTIFICA -->
+    <div id="notification" style="display: none;"></div>
+
+    <!-- LOADING -->
+    <div id="loading" class="min-h-screen flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-red-600 mx-auto mb-4"></div>
+            <p class="text-white text-xl">Caricamento Milan Stock Exchange...</p>
+        </div>
+    </div>
+
+    <!-- APP PRINCIPALE -->
+    <div id="app" style="display: none;">
+        <!-- HEADER -->
+        <div class="border-b border-slate-700 bg-slate-800/50 backdrop-blur-sm sticky top-0 z-40">
+            <div class="max-w-7xl mx-auto px-4 py-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h1 class="text-4xl font-bold text-red-600 flex items-center gap-3">
+                            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            MILAN STOCK EXCHANGE
+                        </h1>
+                        <p class="text-slate-400 mt-2">Stagione 2025/26 • Vota la strategia di mercato</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-slate-400 mb-1">SENTIMENT DI MERCATO</div>
+                        <div id="marketSentiment" class="text-2xl font-bold text-yellow-400">NEUTRALE</div>
+                    </div>
+                </div>
+
+                <!-- STATISTICHE GLOBALI -->
+                <div class="grid grid-cols-3 gap-4 mb-4">
+                    <div class="bg-slate-700/30 rounded-lg p-3 border border-slate-600">
+                        <div class="flex items-center gap-2 text-slate-400 text-sm mb-1">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                            </svg>
+                            Voti Totali
+                        </div>
+                        <div id="totalVotes" class="text-2xl font-bold">0</div>
+                    </div>
+                    <div class="bg-green-900/20 rounded-lg p-3 border border-green-700">
+                        <div class="flex items-center gap-2 text-green-400 text-sm mb-1">
+                            📈 Voti BUY
+                        </div>
+                        <div id="totalBuyVotes" class="text-2xl font-bold text-green-400">0</div>
+                    </div>
+                    <div class="bg-red-900/20 rounded-lg p-3 border border-red-700">
+                        <div class="flex items-center gap-2 text-red-400 text-sm mb-1">
+                            📉 Voti SELL
+                        </div>
+                        <div id="totalSellVotes" class="text-2xl font-bold text-red-400">0</div>
+                    </div>
+                </div>
+
+                <!-- FILTRI -->
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="setFilter('ALL')" class="filter-btn bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-all">
+                        Tutti
+                    </button>
+                    <button onclick="setFilter('P')" class="filter-btn bg-slate-700 text-slate-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-medium transition-all">
+                        Portieri
+                    </button>
+                    <button onclick="setFilter('D')" class="filter-btn bg-slate-700 text-slate-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-medium transition-all">
+                        Difensori
+                    </button>
+                    <button onclick="setFilter('C')" class="filter-btn bg-slate-700 text-slate-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-medium transition-all">
+                        Centrocampisti
+                    </button>
+                    <button onclick="setFilter('A')" class="filter-btn bg-slate-700 text-slate-300 hover:bg-slate-600 px-4 py-2 rounded-lg font-medium transition-all">
+                        Attaccanti
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- GRIGLIA GIOCATORI -->
+        <div class="max-w-7xl mx-auto px-4 py-8">
+            <div id="playersGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="border-t border-slate-700 bg-slate-800/50 mt-12">
+            <div class="max-w-7xl mx-auto px-4 py-6 text-center">
+                <p class="text-slate-400">
+                    Powered by <span class="text-red-600 font-bold">RedBlack Insights</span>
+                </p>
+                <p class="text-slate-500 text-sm mt-2">
+                    I dati di mercato sono aggiornati al 12 Febbraio 2026 (fonte: Transfermarkt)
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

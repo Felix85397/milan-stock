@@ -10,7 +10,7 @@
         // CONFIGURAZIONE FIREBASE
         // ============================================
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getFirestore, collection, doc, updateDoc, increment, onSnapshot, getDocs, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+        import { getFirestore, collection, doc, setDoc, deleteDoc, updateDoc, increment, onSnapshot, getDocs, writeBatch } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
             apiKey: "AIzaSyAlU_5N7xROR2eZHA27Zv_9B4ZPLOLR7bw",
@@ -67,36 +67,92 @@
         // ============================================
         // INIZIALIZZAZIONE
         // ============================================
+
+        // Genera un ID stabile dal nome del giocatore (es. "Rafael Leão" → "rafael-leao")
+        function getPlayerId(name) {
+            return name.toLowerCase()
+                .normalize('NFD')
+                .replace(/[̀-ͯ]/g, '')
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-|-$/g, '');
+        }
+
+        // Aggrega i voti dai documenti duplicati nell'ID canonico e cancella i duplicati
+        async function deduplicatePlayers(playersCollection, snapshot) {
+            const byName = {};
+            snapshot.docs.forEach(d => {
+                const data = d.data();
+                if (!byName[data.name]) byName[data.name] = [];
+                byName[data.name].push({ id: d.id, ...data });
+            });
+
+            const batch = writeBatch(db);
+            let hasChanges = false;
+
+            for (const player of initialPlayers) {
+                const canonicalId = getPlayerId(player.name);
+                const docs = byName[player.name] || [];
+
+                if (docs.length === 0) {
+                    batch.set(doc(playersCollection, canonicalId), player);
+                    hasChanges = true;
+                } else if (docs.length === 1 && docs[0].id === canonicalId) {
+                    // Già corretto, niente da fare
+                } else {
+                    const totalBuy  = docs.reduce((s, d) => s + (d.votesBuy  || 0), 0);
+                    const totalHold = docs.reduce((s, d) => s + (d.votesHold || 0), 0);
+                    const totalSell = docs.reduce((s, d) => s + (d.votesSell || 0), 0);
+
+                    batch.set(doc(playersCollection, canonicalId), {
+                        ...player,
+                        votesBuy: totalBuy,
+                        votesHold: totalHold,
+                        votesSell: totalSell
+                    });
+
+                    docs.forEach(d => {
+                        if (d.id !== canonicalId) {
+                            batch.delete(doc(playersCollection, d.id));
+                        }
+                    });
+
+                    hasChanges = true;
+                }
+            }
+
+            if (hasChanges) {
+                await batch.commit();
+                console.log('Deduplicazione completata.');
+            }
+        }
+
         async function initializeMilanApp() {
             try {
-                // Carica voti dal localStorage
                 const savedVotes = localStorage.getItem('milanStockVotes');
                 if (savedVotes) {
                     votedPlayers = new Set(JSON.parse(savedVotes));
                 }
 
-                // Controlla se il database è vuoto
                 const playersCollection = collection(db, 'players');
                 const snapshot = await getDocs(playersCollection);
 
                 if (snapshot.empty) {
                     console.log('Database vuoto. Inizializzazione...');
                     const batch = writeBatch(db);
-                    
                     initialPlayers.forEach((player) => {
-                        const docRef = doc(playersCollection);
-                        batch.set(docRef, player);
+                        batch.set(doc(playersCollection, getPlayerId(player.name)), player);
                     });
-
                     await batch.commit();
                     console.log('Database inizializzato!');
+                } else {
+                    // Risolve duplicati generati da ID casuali precedenti
+                    await deduplicatePlayers(playersCollection, snapshot);
                 }
 
-                // Listener real-time
                 onSnapshot(playersCollection, (snapshot) => {
-                    players = snapshot.docs.map(doc => ({
-                        id: doc.id,
-                        ...doc.data()
+                    players = snapshot.docs.map(d => ({
+                        id: d.id,
+                        ...d.data()
                     }));
                     renderPlayers();
                     updateStats();

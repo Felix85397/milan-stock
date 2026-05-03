@@ -2,8 +2,10 @@ name: Daily Firestore Backup
 
 on:
   schedule:
-    - cron: '0 3 * * *'   # ogni giorno alle 3:00 UTC
-  workflow_dispatch:        # avvio manuale dal tab Actions su GitHub
+    - cron: '0 22 * * *'   # mezzanotte italiana (00:00 CEST = 22:00 UTC)
+    - cron: '0  8 * * *'   # mattina italiana    (10:00 CEST = 08:00 UTC)
+    - cron: '0 16 * * *'   # pomeriggio italiano (18:00 CEST = 16:00 UTC)
+  workflow_dispatch:         # avvio manuale dal tab Actions su GitHub
 
 jobs:
   backup:
@@ -45,5 +47,5 @@ print(json.dumps(players, indent=2, ensure_ascii=False))
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add backup/
-          git diff --staged --quiet || git commit -m "backup: Firestore snapshot $(date +%Y-%m-%d)"
+          git diff --staged --quiet || git commit -m "backup: Firestore snapshot $(date +%Y-%m-%d %H:%M UTC)"
           git push

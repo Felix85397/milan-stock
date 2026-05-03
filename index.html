@@ -77,55 +77,6 @@
                 .replace(/^-|-$/g, '');
         }
 
-        // Aggrega i voti dai documenti duplicati nell'ID canonico e cancella i duplicati
-        async function deduplicatePlayers(playersCollection, snapshot) {
-            const byName = {};
-            snapshot.docs.forEach(d => {
-                const data = d.data();
-                if (!byName[data.name]) byName[data.name] = [];
-                byName[data.name].push({ id: d.id, ...data });
-            });
-
-            const batch = writeBatch(db);
-            let hasChanges = false;
-
-            for (const player of initialPlayers) {
-                const canonicalId = getPlayerId(player.name);
-                const docs = byName[player.name] || [];
-
-                if (docs.length === 0) {
-                    batch.set(doc(playersCollection, canonicalId), player);
-                    hasChanges = true;
-                } else if (docs.length === 1 && docs[0].id === canonicalId) {
-                    // Già corretto, niente da fare
-                } else {
-                    const totalBuy  = docs.reduce((s, d) => s + (d.votesBuy  || 0), 0);
-                    const totalHold = docs.reduce((s, d) => s + (d.votesHold || 0), 0);
-                    const totalSell = docs.reduce((s, d) => s + (d.votesSell || 0), 0);
-
-                    batch.set(doc(playersCollection, canonicalId), {
-                        ...player,
-                        votesBuy: totalBuy,
-                        votesHold: totalHold,
-                        votesSell: totalSell
-                    });
-
-                    docs.forEach(d => {
-                        if (d.id !== canonicalId) {
-                            batch.delete(doc(playersCollection, d.id));
-                        }
-                    });
-
-                    hasChanges = true;
-                }
-            }
-
-            if (hasChanges) {
-                await batch.commit();
-                console.log('Deduplicazione completata.');
-            }
-        }
-
         async function initializeMilanApp() {
             try {
                 const savedVotes = localStorage.getItem('milanStockVotes');
@@ -136,24 +87,55 @@
                 const playersCollection = collection(db, 'players');
                 const snapshot = await getDocs(playersCollection);
 
-                if (snapshot.empty) {
-                    console.log('Database vuoto. Inizializzazione...');
-                    const batch = writeBatch(db);
-                    initialPlayers.forEach((player) => {
-                        batch.set(doc(playersCollection, getPlayerId(player.name)), player);
-                    });
-                    await batch.commit();
-                    console.log('Database inizializzato!');
-                } else {
-                    // Risolve duplicati generati da ID casuali precedenti
-                    await deduplicatePlayers(playersCollection, snapshot);
+                const canonicalIds = new Set(initialPlayers.map(p => getPlayerId(p.name)));
+
+                // Raggruppa i doc esistenti per nome (per salvare voti da doc non-canonici)
+                const byName = {};
+                snapshot.docs.forEach(d => {
+                    const data = d.data();
+                    if (data.name) {
+                        if (!byName[data.name]) byName[data.name] = [];
+                        byName[data.name].push({ id: d.id, ...data });
+                    }
+                });
+
+                const existingCanonicalIds = new Set(
+                    snapshot.docs.filter(d => canonicalIds.has(d.id)).map(d => d.id)
+                );
+
+                const batch = writeBatch(db);
+                let hasChanges = false;
+
+                // Elimina doc con ID non-canonici (residui del vecchio codice)
+                snapshot.docs.forEach(d => {
+                    if (!canonicalIds.has(d.id)) {
+                        batch.delete(doc(playersCollection, d.id));
+                        hasChanges = true;
+                    }
+                });
+
+                // Crea solo i doc canonici MANCANTI — quelli esistenti non vengono mai toccati
+                for (const player of initialPlayers) {
+                    const canonicalId = getPlayerId(player.name);
+                    if (!existingCanonicalIds.has(canonicalId)) {
+                        const nonCanonical = (byName[player.name] || []).filter(d => d.id !== canonicalId);
+                        const totalBuy  = nonCanonical.reduce((s, d) => s + (d.votesBuy  || 0), 0);
+                        const totalHold = nonCanonical.reduce((s, d) => s + (d.votesHold || 0), 0);
+                        const totalSell = nonCanonical.reduce((s, d) => s + (d.votesSell || 0), 0);
+                        batch.set(doc(playersCollection, canonicalId), {
+                            ...player,
+                            votesBuy: totalBuy,
+                            votesHold: totalHold,
+                            votesSell: totalSell
+                        });
+                        hasChanges = true;
+                    }
                 }
 
-                onSnapshot(playersCollection, (snapshot) => {
-                    players = snapshot.docs.map(d => ({
-                        id: d.id,
-                        ...d.data()
-                    }));
+                if (hasChanges) await batch.commit();
+
+                onSnapshot(playersCollection, (snap) => {
+                    players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
                     renderPlayers();
                     updateStats();
                 });

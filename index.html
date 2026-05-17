@@ -57,31 +57,31 @@
             { name: "Niclas Füllkrug", role: "A", value: "5.00 MLN €", votesBuy: 0, votesHold: 0, votesSell: 0 }
         ];
 
-        // Voti da ripristinare (calcolati sulle percentuali indicate, 80-100 voti per giocatore)
+        // Backup voti — aggiornato unendo snapshot precedente + voti arrivati dopo l'azzeramento
         const voteRestore = {
-            'adrien-rabiot':       { votesBuy: 79, votesHold:  4, votesSell:  5 }, // 88 tot — 90/5/5%
-            'alexis-saelemaekers': { votesBuy: 71, votesHold:  8, votesSell:  5 }, // 84 tot — 85/10/5%
-            'ardon-jashari':       { votesBuy: 57, votesHold: 16, votesSell:  9 }, // 82 tot — 70/20/10%
-            'christian-pulisic':   { votesBuy: 32, votesHold: 46, votesSell: 13 }, // 91 tot — 35/50/15%
-            'christopher-nkunku':  { votesBuy:  4, votesHold:  5, votesSell: 75 }, // 84 tot — 5/6/89%
-            'david-odogu':         { votesBuy: 10, votesHold: 63, votesSell: 10 }, // 83 tot — poco/tanto/poco
-            'davide-bartesaghi':   { votesBuy: 66, votesHold: 16, votesSell:  5 }, // 87 tot — tanto/poco/pochissimo
-            'fikayo-tomori':       { votesBuy: 11, votesHold: 70, votesSell: 11 }, // 92 tot — poco/tanto/poco
-            'koni-de-winter':      { votesBuy: 62, votesHold: 13, votesSell: 11 }, // 86 tot — tanto/poco/poco
-            'lorenzo-torriani':    { votesBuy: 12, votesHold: 58, votesSell: 13 }, // 83 tot — poco/tanto/poco
-            'luka-modric':         { votesBuy: 71, votesHold:  5, votesSell: 13 }, // 89 tot — tantissimo/pochissimo/poco
-            'matteo-gabbia':       { votesBuy: 61, votesHold: 13, votesSell: 11 }, // 85 tot — tanto/poco/poco
-            'mike-maignan':        { votesBuy: 70, votesHold: 13, votesSell: 11 }, // 94 tot — tanto/poco/poco
-            'niclas-fullkrug':     { votesBuy:  4, votesHold:  6, votesSell: 71 }, // 81 tot — pochissimo/pochissimo/tantissimo
-            'pervis-estupinan':    { votesBuy:  5, votesHold:  4, votesSell: 79 }, // 88 tot — pochissimo/pochissimo/tantissimo
-            'pietro-terracciano':  { votesBuy:  4, votesHold:  7, votesSell: 72 }, // 83 tot — pochissimo/pochissimo/tantissimo
-            'rafael-leao':         { votesBuy: 12, votesHold: 31, votesSell: 53 }, // 96 tot — poco/discreto/tanto
-            'ruben-loftus-cheek':  { votesBuy:  3, votesHold:  6, votesSell: 71 }, // 80 tot — pochissimo/pochissimo/tantissimo
-            'samuele-ricci':       { votesBuy: 14, votesHold: 63, votesSell: 13 }, // 90 tot — poco/tanto/poco
-            'santiago-gimenez':    { votesBuy:  5, votesHold:  7, votesSell: 73 }, // 85 tot — pochissimo/pochissimo/tantissimo
-            'strahinja-pavlovic':  { votesBuy: 76, votesHold: 11, votesSell:  6 }, // 93 tot — tantissimo/poco/pochissimo
-            'youssouf-fofana':     { votesBuy: 19, votesHold: 49, votesSell: 19 }, // 87 tot — poco/discreto/poco
-            'zachary-athekame':    { votesBuy: 16, votesHold: 50, votesSell: 16 }, // 82 tot — poco/discreto/poco
+            'adrien-rabiot':       { votesBuy: 85, votesHold:  4, votesSell:  5 }, // 94 tot
+            'alexis-saelemaekers': { votesBuy: 74, votesHold: 10, votesSell:  5 }, // 89 tot
+            'ardon-jashari':       { votesBuy: 57, votesHold: 20, votesSell:  9 }, // 86 tot
+            'christian-pulisic':   { votesBuy: 36, votesHold: 46, votesSell: 14 }, // 96 tot
+            'christopher-nkunku':  { votesBuy:  5, votesHold:  6, votesSell: 78 }, // 89 tot
+            'david-odogu':         { votesBuy: 10, votesHold: 64, votesSell: 13 }, // 87 tot
+            'davide-bartesaghi':   { votesBuy: 70, votesHold: 16, votesSell:  5 }, // 91 tot
+            'fikayo-tomori':       { votesBuy: 11, votesHold: 72, votesSell: 13 }, // 96 tot
+            'koni-de-winter':      { votesBuy: 62, votesHold: 16, votesSell: 12 }, // 90 tot
+            'lorenzo-torriani':    { votesBuy: 16, votesHold: 58, votesSell: 13 }, // 87 tot
+            'luka-modric':         { votesBuy: 75, votesHold:  5, votesSell: 13 }, // 93 tot
+            'matteo-gabbia':       { votesBuy: 65, votesHold: 13, votesSell: 11 }, // 89 tot
+            'mike-maignan':        { votesBuy: 74, votesHold: 13, votesSell: 11 }, // 98 tot
+            'niclas-fullkrug':     { votesBuy:  4, votesHold:  6, votesSell: 76 }, // 86 tot
+            'pervis-estupinan':    { votesBuy:  5, votesHold:  4, votesSell: 83 }, // 92 tot
+            'pietro-terracciano':  { votesBuy:  6, votesHold:  9, votesSell: 72 }, // 87 tot
+            'rafael-leao':         { votesBuy: 12, votesHold: 32, votesSell: 57 }, // 101 tot
+            'ruben-loftus-cheek':  { votesBuy:  5, votesHold:  7, votesSell: 72 }, // 84 tot
+            'samuele-ricci':       { votesBuy: 15, votesHold: 65, votesSell: 14 }, // 94 tot
+            'santiago-gimenez':    { votesBuy:  5, votesHold:  7, votesSell: 78 }, // 90 tot
+            'strahinja-pavlovic':  { votesBuy: 80, votesHold: 11, votesSell:  6 }, // 97 tot
+            'youssouf-fofana':     { votesBuy: 21, votesHold: 51, votesSell: 19 }, // 91 tot
+            'zachary-athekame':    { votesBuy: 17, votesHold: 51, votesSell: 18 }, // 86 tot
         };
 
         // ============================================
@@ -141,14 +141,22 @@
                     }
                 });
 
-                // Crea solo i doc canonici MANCANTI — quelli esistenti non vengono mai toccati
+                // Crea solo i doc canonici MANCANTI — quelli esistenti non vengono mai toccati.
+                // Se non ci sono doc non-canonici da migrare, usa voteRestore come floor minimo.
                 for (const player of initialPlayers) {
                     const canonicalId = getPlayerId(player.name);
                     if (!existingCanonicalIds.has(canonicalId)) {
                         const nonCanonical = (byName[player.name] || []).filter(d => d.id !== canonicalId);
-                        const totalBuy  = nonCanonical.reduce((s, d) => s + (d.votesBuy  || 0), 0);
-                        const totalHold = nonCanonical.reduce((s, d) => s + (d.votesHold || 0), 0);
-                        const totalSell = nonCanonical.reduce((s, d) => s + (d.votesSell || 0), 0);
+                        const backup = voteRestore[canonicalId] || {};
+                        const totalBuy  = nonCanonical.length > 0
+                            ? nonCanonical.reduce((s, d) => s + (d.votesBuy  || 0), 0)
+                            : (backup.votesBuy  || 0);
+                        const totalHold = nonCanonical.length > 0
+                            ? nonCanonical.reduce((s, d) => s + (d.votesHold || 0), 0)
+                            : (backup.votesHold || 0);
+                        const totalSell = nonCanonical.length > 0
+                            ? nonCanonical.reduce((s, d) => s + (d.votesSell || 0), 0)
+                            : (backup.votesSell || 0);
                         batch.set(doc(playersCollection, canonicalId), {
                             ...player,
                             votesBuy: totalBuy,
@@ -161,12 +169,23 @@
 
                 if (hasChanges) await batch.commit();
 
-                // Ripristino manuale voti: visita /?restore=milan2025 una volta sola
-                if (new URLSearchParams(window.location.search).get('restore') === 'milan2025') {
+                // Ripristino manuale voti: visita /?restore=milan2025v2 una volta sola.
+                // Usa Math.max(backup, current) così non si perdono mai voti più recenti del backup.
+                if (new URLSearchParams(window.location.search).get('restore') === 'milan2025v2') {
+                    const freshSnap = await getDocs(playersCollection);
+                    const currentData = {};
+                    freshSnap.docs.forEach(d => { currentData[d.id] = d.data(); });
                     const rb = writeBatch(db);
                     initialPlayers.forEach(player => {
                         const id = getPlayerId(player.name);
-                        rb.set(doc(playersCollection, id), { ...player, ...(voteRestore[id] || {}) });
+                        const backup  = voteRestore[id] || {};
+                        const current = currentData[id]  || {};
+                        rb.set(doc(playersCollection, id), {
+                            ...player,
+                            votesBuy:  Math.max(backup.votesBuy  || 0, current.votesBuy  || 0),
+                            votesHold: Math.max(backup.votesHold || 0, current.votesHold || 0),
+                            votesSell: Math.max(backup.votesSell || 0, current.votesSell || 0),
+                        });
                     });
                     await rb.commit();
                     window.history.replaceState({}, '', '/');
